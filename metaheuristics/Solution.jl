@@ -32,7 +32,7 @@ function eval_objective(bl::BitArray, problem::Problem.Prob)::Int
     total_infeas = 0
     for upper_bound in problem.upper_bounds
         diff = sum(upper_bound[1] .* bl) - upper_bound[2]
-        if diff > 0 #FIXME: branch in possible vectorizable loop?
+        if diff > 0
             total_infeas += diff
         end
     end
