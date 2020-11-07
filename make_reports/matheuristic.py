@@ -83,35 +83,133 @@ def add_summary_table(sheet, all_problems, row, col):
             sheet.write(row, col + 9, end_CPLEX_tol)
             sheet.write(row, col + 10, proven)
 
+def add_equal_time_comp_table(sheet, warm_starts):
+    row, col = 0, 0 
+    sheet.write(row, col + 0, "dataset", bold_format)
+    sheet.write(row, col + 1, "instance", bold_format)
+    sheet.write(row, col + 2, "case", bold_format)
+    sheet.write(row, col + 4, "cold start final objective", bold_format)
+    sheet.write(row, col + 5, "cold start final infeasibility", bold_format)
+    sheet.write(row, col + 6, "cold start elapsed time", bold_format)
+    sheet.write(row, col + 7, "cold start end CPLEX tolerance", bold_format)
+    sheet.write(row, col + 8, "cold start termination status", bold_format)
+    sheet.write(row, col + 10, "warm start starting objective", bold_format)
+    sheet.write(row, col + 11, "warm start starting infeasibility", bold_format)
+    sheet.write(row, col + 12, "warm start final objective", bold_format)
+    sheet.write(row, col + 13, "warm start final infeasibility", bold_format)
+    sheet.write(row, col + 14, "warm start elapsed time", bold_format)
+    sheet.write(row, col + 15, "warm start final CPLEX tolerance", bold_format)
+    sheet.write(row, col + 16, "warm start termination status", bold_format)
+    
+    sheet.write(row, col + 18, "warm cold difference", bold_format)
+
+    warm_starts.sort(key=lambda x: x["problem"]["instance"]*100 + x["problem"]["case"])
+    
+    for problem in warm_starts:
+        cold_result = problem["solution_steps"][0]
+        warm_result = problem["solution_steps"][1]
+        row += 1 
+        sheet.write(row, col + 0, problem["problem"]["dataset"])
+        sheet.write(row, col + 1, problem["problem"]["instance"])
+        sheet.write(row, col + 2, problem["problem"]["case"])
+
+        sheet.write(row, col + 4, cold_result[-1]["objective"])
+        sheet.write(row, col + 5, cold_result[-1]["infeasibility"])
+        sheet.write(row, col + 6, sum([step["elapsed_time"] for step in cold_result]))
+        sheet.write(row, col + 7, cold_result[-1]["tolerance"])
+        sheet.write(row, col + 8, cold_result[-1]["termination_status"])
+
+        sheet.write(row, col + 10, warm_result[0]["objective"])
+        sheet.write(row, col + 11, warm_result[0]["infeasibility"])
+        sheet.write(row, col + 12, warm_result[-1]["objective"])
+        sheet.write(row, col + 13, warm_result[-1]["infeasibility"])
+        sheet.write(row, col + 14, sum([step["elapsed_time"] for step in warm_result]))
+        sheet.write(row, col + 15, warm_result[-1]["tolerance"])
+        sheet.write(row, col + 16, warm_result[-1]["termination_status"])
+        
+        sheet.write(row, col + 18, warm_result[-1]["objective"] - cold_result[-1]["objective"])
+            
+
 def add_comparison_table(sheet, warm_starts, cold_starts):
-    for problem in cold_starts:
-        print(problem)
+    row, col = 0, 0 
+    sheet.write(row, col + 0, "dataset", bold_format)
+    sheet.write(row, col + 1, "instance", bold_format)
+    sheet.write(row, col + 2, "case", bold_format)
+    sheet.write(row, col + 4, "cold start final objective", bold_format)
+    sheet.write(row, col + 5, "cold start final infeasibility", bold_format)
+    sheet.write(row, col + 6, "cold start elapsed time", bold_format)
+    sheet.write(row, col + 7, "cold start end CPLEX tolerance", bold_format)
+    sheet.write(row, col + 8, "cold start termination status", bold_format)
+    sheet.write(row, col + 10, "warm start starting objective", bold_format)
+    sheet.write(row, col + 11, "warm start starting infeasibility", bold_format)
+    sheet.write(row, col + 12, "warm start final objective", bold_format)
+    sheet.write(row, col + 13, "warm start final infeasibility", bold_format)
+    sheet.write(row, col + 14, "warm start elapsed time", bold_format)
+    sheet.write(row, col + 15, "warm start final CPLEX tolerance", bold_format)
+    sheet.write(row, col + 16, "warm start termination status", bold_format)
+    
+    sheet.write(row, col + 18, "warm cold difference", bold_format)
+
+    cold_starts.sort(key=lambda x: x["problem"]["instance"]*100 + x["problem"]["case"])
+
+    
+    
+    for cold_result in cold_starts:
+        warm_result = None
+        for problem in warm_starts:
+            if problem["problem"] == cold_result["problem"]:
+                warm_result = problem 
+                break 
+        if warm_result is None:
+            print("no matching warm start results for ", cold_result["problem"])
+            continue 
+        else: 
+            row += 1 
+            sheet.write(row, col + 0, cold_result["problem"]["dataset"])
+            sheet.write(row, col + 1, cold_result["problem"]["instance"])
+            sheet.write(row, col + 2, cold_result["problem"]["case"])
+
+            sheet.write(row, col + 4, cold_result["solution_steps"][0][-1]["objective"])
+            sheet.write(row, col + 5, cold_result["solution_steps"][0][-1]["infeasibility"])
+            sheet.write(row, col + 6, sum([step["elapsed_time"] for step in cold_result["solution_steps"][0]]))
+            sheet.write(row, col + 7, cold_result["solution_steps"][0][-1]["tolerance"])
+            sheet.write(row, col + 8, cold_result["solution_steps"][0][-1]["termination_status"])
+
+            #now we need to select the best of the warm starts 
+            best_warm_start_ss = min(warm_result["solution_steps"], key=lambda ss: ss[0]["tolerance"] * ss[-1]["objective"])
+
+            sheet.write(row, col + 10, best_warm_start_ss[0]["objective"])
+            sheet.write(row, col + 11, best_warm_start_ss[0]["infeasibility"])
+            sheet.write(row, col + 12, best_warm_start_ss[-1]["objective"])
+            sheet.write(row, col + 13, best_warm_start_ss[-1]["infeasibility"])
+            sheet.write(row, col + 14, sum([step["elapsed_time"] for step in best_warm_start_ss]))
+            sheet.write(row, col + 15, best_warm_start_ss[-1]["tolerance"])
+            sheet.write(row, col + 16, best_warm_start_ss[-1]["termination_status"])
+            
+            sheet.write(row, col + 18, best_warm_start_ss[-1]["objective"] - cold_result["solution_steps"][0][-1]["objective"])
+            
+
+        
+        
+
+def load_data(dir):
+    all_problems = []
+    for file in sorted(os.listdir(dir)):
+        try:
+            data = json.loads(open(os.path.join(dir, file), "r").read())
+            all_problems.append(data)
+        except json.decoder.JSONDecodeError:
+            pass
+    return all_problems
+
+warm_start_problems = load_data("./oct_13_hard")
+cold_start_problems = load_data("./long_cold_start")
 
 
-#collect data
-all_problems = []
-dir = "../oct_13_hard"
-for file in sorted(os.listdir(dir)):
-    try:
-        print(file)
-        data = json.loads(open(os.path.join(dir, file), "r").read())
+comp_sheet = book.add_worksheet("Multi Start Comparison")
+add_comparison_table(comp_sheet, warm_start_problems, cold_start_problems) 
 
-        all_problems.append(data)
-    except json.decoder.JSONDecodeError:
-        pass
-
-print(all_problems)
-
-sheet = book.add_worksheet("problem summaries")
-
-row, col = 0, 0
-for result in all_problems:
-    sheet.write(row, 1, json.dumps(result["problem"]))
-    row, col = add_step_tolerances(sheet, result["solution_steps"], row, 0)
-    row += 1
-
-summary_sheet = book.add_worksheet("Summary Table")
-add_summary_table(summary_sheet, all_problems, 0, 0)
-
+comp_sheet = book.add_worksheet("Single Start Comparison")
+add_equal_time_comp_table(comp_sheet, warm_start_problems) 
 
 book.close()

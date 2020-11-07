@@ -11,7 +11,7 @@ include("./diverse_selection_heuristic.jl")
 problems = MH.Problem.load_folder("../benchmark_problems/")
 test_problems = problems[600:604]
 hard_problems = MH.Problem.slice_select(
-        problems, datasets=[7], cases=[3, 6])
+        problems, datasets=[8, 9], cases=[3, 6])
 
 
 repop = MH.repeat_opt(n=5, time_limit=5)
@@ -27,10 +27,12 @@ function run_matheuristic(problems, results_folder; optimizer=repop,
 		println("running on problem $(p.id)")
 		problem_results = Vector{}()
 
+		tolerances = [.001, .005, .01, .05, .08, .12]
 		# cold start check
 		if cold_start
 			push!(problem_results, SSIT.test_problem(p,
 					time_per_tol_step=tol_time))
+			tolerances = [.001, .001, .005, .01, .05, .08, .12]
 		end
 
 		#now, use the metaheuristic to generate a population
@@ -45,7 +47,8 @@ function run_matheuristic(problems, results_folder; optimizer=repop,
 		#start with several different solutions
 		for sol in subset
 			push!(problem_results, SSIT.test_problem(p, initial_sol=sol,
-					initial_sol_time=elapsed_time, time_per_tol_step=tol_time))
+					initial_sol_time=elapsed_time, time_per_tol_step=tol_time,
+					tolerances=tolerances))
 		end
 
 		# save the problem results
@@ -62,7 +65,7 @@ end
 # 	optimizer=MH.repeat_opt(time_limit=10, n=1), popsize=30, n_starts=2)
 
 
-solset = run_matheuristic(hard_problems[26:30], "../long_cold_start", tol_time=60*(5 + 5*6*3)/6,
-	optimizer=MH.repeat_opt(time_limit=10, n=6*5), popsize=50, n_starts=0)
+solset = run_matheuristic(hard_problems, "../ds8_9_results", tol_time=5*60,
+	optimizer=MH.repeat_opt(time_limit=5*60, n=1), popsize=50, n_starts=1)
 
 println("done")
