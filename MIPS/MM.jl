@@ -57,8 +57,13 @@ function create_always_feasible_model(problem; time_limit=20, weight=20)
     model
 end
 
-function set_tolerance(model, tolerance)
+function set_tolerance!(model, tolerance)
 	set_optimizer_attribute(model, "CPXPARAM_MIP_Tolerances_MIPGap", tolerance)
+end
+
+
+function set_time!(model, time)
+	set_optimizer_attribute(model, "CPXPARAM_TimeLimit", time)
 end
 
 """accept an MDMKP Sol and set the model to have the same bitlist"""

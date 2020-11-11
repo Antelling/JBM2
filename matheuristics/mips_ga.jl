@@ -65,7 +65,7 @@ function produce_child(parent, otherparent, model, tl)
 	#check if anything was found andor proven
 	if termination_status(model) == "OPTIMAL"
 		return parent
-	if has_values(model)
+	elseif has_values(model)
 		println("found solution")
 		sol = MH.Sol(parent.problem, value.(model[:x]))
 		return sol, termination_status(model) == "OPTIMAL"
@@ -126,6 +126,6 @@ pop = repop(prob)
 
 get_best_sol(pop).score
 
-ga!(pop, model, reproduction_time_limit=10, experiment_time_limit=1000)
+ga!(pop, model, reproduction_time_limit=.3, experiment_time_limit=5)
 
 get_best_sol(pop).score

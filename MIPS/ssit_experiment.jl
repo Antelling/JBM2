@@ -4,20 +4,25 @@ Cplex is found at
 =#
 using JSON
 include("SSIT.jl")
-const MH = SSIT.MH
 
 include("./diverse_selection_heuristic.jl")
 
-problems = MH.Problem.load_folder("../benchmark_problems/")
-test_problems = problems[600:604]
-hard_problems = MH.Problem.slice_select(
+problems = SSIT.MH.Problem.load_folder("./benchmark_problems/")
+hard_problems = SSIT.MH.Problem.slice_select(
         problems, datasets=[8, 9], cases=[3, 6])
 
 
-repop = MH.repeat_opt(n=5, time_limit=5)
+repop = SSIT.MH.repeat_opt(n=5, time_limit=5)
 
-function run_matheuristic(problems, results_folder; optimizer=repop,
-		tol_time=10, popsize=30, cold_start=true, n_starts=1)
+function run_matheuristic(problems, results_folder;
+		optimizer=repop,
+		popsize=30,
+		cold_start=true,
+		n_starts=1,
+		tolerances = [.001, .005, .01, .05, .08, .12],
+		times = [300, 300, 300, 300, 300, 300],
+		cs_times=[600, 300, 300, 300, 300, 300])
+
 	#set up results storage
 	results = Vector{Dict{String,Any}}()
 	mkpath(results_folder)
@@ -27,12 +32,11 @@ function run_matheuristic(problems, results_folder; optimizer=repop,
 		println("running on problem $(p.id)")
 		problem_results = Vector{}()
 
-		tolerances = [.001, .005, .01, .05, .08, .12]
 		# cold start check
 		if cold_start
+			#the cold start gets twice as much time for the first phase
 			push!(problem_results, SSIT.test_problem(p,
-					time_per_tol_step=tol_time))
-			tolerances = [.001, .001, .005, .01, .05, .08, .12]
+					times=cs_times))
 		end
 
 		#now, use the metaheuristic to generate a population
@@ -47,14 +51,14 @@ function run_matheuristic(problems, results_folder; optimizer=repop,
 		#start with several different solutions
 		for sol in subset
 			push!(problem_results, SSIT.test_problem(p, initial_sol=sol,
-					initial_sol_time=elapsed_time, time_per_tol_step=tol_time,
+					initial_sol_time=elapsed_time, times=times,
 					tolerances=tolerances))
 		end
 
 		# save the problem results
 		push!(results, Dict("problem"=>p.id, "solution_steps"=>problem_results))
 		f = open(joinpath(results_folder,
-			MH.repr(p)), "w")
+			SSIT.MH.repr(p)), "w")
 		write(f, JSON.json(results[end]))
 		close(f)
 	end
@@ -65,7 +69,14 @@ end
 # 	optimizer=MH.repeat_opt(time_limit=10, n=1), popsize=30, n_starts=2)
 
 
-solset = run_matheuristic(hard_problems, "../ds8_9_results", tol_time=5*60,
-	optimizer=MH.repeat_opt(time_limit=5*60, n=1), popsize=50, n_starts=1)
+solset = run_matheuristic(hard_problems, "ds_8_9_res_fast",
+	optimizer=SSIT.MH.repeat_opt(time_limit=30, n=1), popsize=15, n_starts=1,
+	times=[5, 5, 5, 5, 5, 5],
+	cs_times=[35, 5, 5, 5, 5, 5])
+
+solset = run_matheuristic(hard_problems, "ds_8_9_res",
+	optimizer=SSIT.MH.repeat_opt(time_limit=300, n=2), popsize=35, n_starts=1,
+	times=[300, 300, 300, 300, 300, 300],
+	cs_times=[900, 300, 300, 300, 300, 300])
 
 println("done")
