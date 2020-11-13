@@ -86,18 +86,18 @@ def add_equal_time_comp_table(sheet, warm_starts):
     sheet.write(row, col + 0, "dataset", bold_format)
     sheet.write(row, col + 1, "instance", bold_format)
     sheet.write(row, col + 2, "case", bold_format)
-    sheet.write(row, col + 4, "cold start final objective", bold_format)
-    sheet.write(row, col + 5, "cold start final infeasibility", bold_format)
-    sheet.write(row, col + 6, "cold start elapsed time", bold_format)
-    sheet.write(row, col + 7, "cold start end CPLEX tolerance", bold_format)
-    sheet.write(row, col + 8, "cold start termination status", bold_format)
-    sheet.write(row, col + 10, "warm start starting objective", bold_format)
-    sheet.write(row, col + 11, "warm start starting infeasibility", bold_format)
-    sheet.write(row, col + 12, "warm start final objective", bold_format)
-    sheet.write(row, col + 13, "warm start final infeasibility", bold_format)
-    sheet.write(row, col + 14, "warm start elapsed time", bold_format)
-    sheet.write(row, col + 15, "warm start final CPLEX tolerance", bold_format)
-    sheet.write(row, col + 16, "warm start termination status", bold_format)
+    sheet.write(row, col + 4, "c obj", bold_format)
+    sheet.write(row, col + 5, "c inf", bold_format)
+    sheet.write(row, col + 6, "c time", bold_format)
+    sheet.write(row, col + 7, "c tol", bold_format)
+    sheet.write(row, col + 8, "c termination", bold_format)
+    sheet.write(row, col + 10, "w start obj", bold_format)
+    sheet.write(row, col + 11, "w start infeas", bold_format)
+    sheet.write(row, col + 12, "w final obj", bold_format)
+    sheet.write(row, col + 13, "w final infeas", bold_format)
+    sheet.write(row, col + 14, "w time", bold_format)
+    sheet.write(row, col + 15, "w tolerance", bold_format)
+    sheet.write(row, col + 16, "w termination", bold_format)
 
     sheet.write(row, col + 18, "warm cold difference", bold_format)
 
@@ -212,11 +212,23 @@ def load_data(dir):
 
 import os
 print(os.listdir("../../"))
-results = load_data("../ds_8_9_res_fast")
+
+results = load_data("../ds_8_9_res")
 comp_sheet = book.add_worksheet("warm cold comp")
 add_equal_time_comp_table(comp_sheet, results)
 
 detail_sheet = book.add_worksheet("detail")
+row, col = 0, 0
+for result in results:
+    detail_sheet.write(row, 1, json.dumps(result["problem"]))
+    row, col = add_step_tolerances(detail_sheet, result["solution_steps"], row, 0)
+    row += 1
+
+results = load_data("../ds_8_9_res_fast")
+comp_sheet = book.add_worksheet("fast warm cold comp")
+add_equal_time_comp_table(comp_sheet, results)
+
+detail_sheet = book.add_worksheet("fast detail")
 row, col = 0, 0
 for result in results:
     detail_sheet.write(row, 1, json.dumps(result["problem"]))

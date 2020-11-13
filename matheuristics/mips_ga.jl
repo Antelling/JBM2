@@ -8,6 +8,7 @@ between them. """
 using JuMP
 using Distances
 include("../MIPS/MM.jl")
+include("../MIPS/diverse_selection_heuristic.jl")
 include("../metaheuristics/MH.jl")
 
 function select_closest_parent(parent, parents, mink=1)
@@ -38,80 +39,80 @@ function silent_optimize!(model)
 	end
 end
 
-function produce_child(parent, otherparent, model, tl)
+function produce_child(parent, otherparents, model, tl)
 	MM.set_bitlist!(model, parent)
-	constrained_vals = [parent.bitlist[i] == otherparent.bitlist[i] for i in 1:length(parent.bitlist)]
+	unconstrained_vals = [any(parent.bitlist[i] .!= [op.bitlist[i] for op in otherparents]) for i in 1:length(parent.bitlist)]
 	x = model[:x]
-	for (i, constrain) in enumerate(constrained_vals)
-		if constrain
+	for (i, uc) in enumerate(unconstrained_vals)
+		if uc
 			fix(x[i], parent.bitlist[i])
 		end
 	end
-	set_time_limit_sec(model, tl)
+	MM.set_time_limit_sec(model, tl)
 
 	#run opt silently
-	silent_optimize!(model)
-	println("time limit is $tl, termination status is $(raw_status(model)) $(termination_status(model))")
-	println(model)
-	println("")
+	tempout = stdout # save stream
+	try
+		redirect_stdout() # redirect to null
+		optimize!(model)
+		redirect_stdout(tempout)
+	catch e
+		redirect_stdout(tempout)
+		error(e)
+	end
+
+	sol = MH.Sol(convert(BitArray, round.(value.(model[:x]))), parent.problem)
 
 	#unfix fixed variables
-	for (i, constrain) in enumerate(constrained_vals)
-		if constrain
+	for (i, uc) in enumerate(unconstrained_vals)
+		if uc
 			unfix(x[i])
 		end
 	end
+	# child_ba = [c ? parent.bitlist[i] : rand([false, true]) for (i, c) in enumerate(constrained_vals)]
 
-	#check if anything was found andor proven
-	if termination_status(model) == "OPTIMAL"
-		return parent
-	elseif has_values(model)
-		println("found solution")
-		sol = MH.Sol(parent.problem, value.(model[:x]))
-		return sol, termination_status(model) == "OPTIMAL"
-	else
-		println("failed to find solution")
-		child_ba = [c ? parent.bitlist[i] : rand([false, true]) for (i, c) in enumerate(constrained_vals)]
-		return MH.Sol(convert(BitArray, child_ba), parent.problem), false
-	end
+	sol
 end
 
-function ga!(parents, model;
+function ga(parents, model;
 			reproduction_time_limit=.1, experiment_time_limit=10.0, minkoswki=1)
 	start_time = time()
 	should_cont = true
 	while should_cont
+		new_solutions = []
+		println("")
 		for (i, parent) in enumerate(parents)
-			println(parent.score)
 			# otherparent = select_closest_parent(parent, parents)
-			otherparent = rand(parents)
+			otherparents = rand(parents, 3)
 
-			child, proven_optimal = produce_child(parent, otherparent, model,
+			child = produce_child(parent, otherparents, model,
 								  reproduction_time_limit)
 
-			#optimal short circuit
-			if proven_optimal
-				return child
-			end
-
 			#check if cplex found an improvement
-			if child.score > parent.score
-				parents[i] == child
+			if !(child in new_solutions)
+				push!(new_solutions, child)
+				println("adding solution with score $(child.score)")
 			end
 
 			#check status of time limit
 			if time() - start_time > experiment_time_limit
 				should_cont = false
+				#we are building the new_solutions array as we go so we can't
+				#exit here without first saving the remaining solutions
+				append!(new_solutions, parents[i:end])
+				parents = new_solutions
 				break
 			end
 		end
+		parents = new_solutions
 	end
+	parents
 end
 
 function get_best_sol(sols)
 	best_found_sol = sols[1]
 	for sol in sols[2:end]
-		if sol.score == best_found_sol.score
+		if sol.score > best_found_sol.score
 			best_found_sol = sol
 		end
 	end
@@ -122,10 +123,14 @@ problems = MH.Problem.load_folder("./benchmark_problems")
 prob = rand(problems)
 model = MM.create_always_feasible_model(prob)
 repop = MH.repeat_opt(n=1, time_limit=30)
-pop = repop(prob)
+pop = repop(prob, popsize=40)
 
+subpop = DS.diverse_select(pop, 10)
+
+get_best_sol(subpop).score
 get_best_sol(pop).score
+"$(prob.id)"
 
-ga!(pop, model, reproduction_time_limit=.3, experiment_time_limit=5)
+optimized = ga(subpop, model, reproduction_time_limit=15, experiment_time_limit=60*10)
 
-get_best_sol(pop).score
+get_best_sol(optimized).score
