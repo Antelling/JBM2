@@ -5,13 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "julia",
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
-            "name": "Run active Julia file",
             "program": "${file}",
-            "stopOnEntry": false,
-            "cwd": "${workspaceFolder}",
-            "juliaEnv": "${command:activeJuliaEnvironment}"
-        }
+            "console": "integratedTerminal"
+        },
     ]
 }

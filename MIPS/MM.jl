@@ -39,7 +39,7 @@ function create_always_feasible_model(problem; time_limit=20, weight=20)
     #make the problem variables with a Binary constraint
     @variable(model, x[1:length(problem.objective)], Bin)
 
-	#make the slack variables to fix infeasibility
+	#make the artificial variables to fix infeasibility
 	@variable(model, s[1:length(problem.upper_bounds)] <= 0)
 	@variable(model, ss[1:length(problem.lower_bounds)] >= 0)
 

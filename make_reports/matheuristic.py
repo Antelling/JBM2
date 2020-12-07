@@ -1,7 +1,8 @@
 import xlsxwriter, json, os
 import numpy as np
+import itertools
 
-book = xlsxwriter.Workbook("ds8_fast.xlsx")
+book = xlsxwriter.Workbook("ds8_9_res.xlsx")
 
 bold_format = book.add_format({'bold': True, 'align': 'right'})
 impgen_format = book.add_format({'align': 'center', 'bg_color': '#CCFFFF', 'border_color': 'black', 'border': 1})
@@ -20,7 +21,8 @@ def add_step_tolerances(sheet, st, row, col):
             sheet.write(row+3, col, "Infeasibility: ", bold_format)
             sheet.write(row+4, col, "Solution status:", bold_format)
             sheet.write(row+5, col, "Termination reason:", bold_format)
-            sheet.write(row+6, col, "Elapsed time:", bold_format)
+            sheet.write(row+5, col, "Bounded:", bold_format)
+            sheet.write(row+7, col, "Elapsed time:", bold_format)
 
             sheet.write(row, col+1+i, trial_step["tolerance"], bold_format)
             sheet.write(row+1, col+1+i, trial_step["cplex_objective"], impgen_format)
@@ -28,8 +30,10 @@ def add_step_tolerances(sheet, st, row, col):
             sheet.write(row+3, col+1+i, trial_step["infeasibility"], impgen_format)
             sheet.write(row+4, col+1+i, trial_step["solution_status"], impgen_format)
             sheet.write(row+5, col+1+i, trial_step["termination_status"], impgen_format)
-            sheet.write(row+6, col+1+i, trial_step["elapsed_time"], impgen_format)
-        row += 8
+            bounded = trial_step["termination_status"] == "OPTIMAL"
+            sheet.write(row+6, col+1+i, str(bounded), impgen_format)
+            sheet.write(row+7, col+1+i, trial_step["elapsed_time"], impgen_format)
+        row += 9
 
     return (row + 4, col + len(st))
 
@@ -91,17 +95,20 @@ def add_equal_time_comp_table(sheet, warm_starts):
     sheet.write(row, col + 6, "c time", bold_format)
     sheet.write(row, col + 7, "c tol", bold_format)
     sheet.write(row, col + 8, "c termination", bold_format)
-    sheet.write(row, col + 10, "w start obj", bold_format)
-    sheet.write(row, col + 11, "w start infeas", bold_format)
-    sheet.write(row, col + 12, "w final obj", bold_format)
-    sheet.write(row, col + 13, "w final infeas", bold_format)
-    sheet.write(row, col + 14, "w time", bold_format)
-    sheet.write(row, col + 15, "w tolerance", bold_format)
-    sheet.write(row, col + 16, "w termination", bold_format)
+    sheet.write(row, col + 9, "c bounded", bold_format)
+    sheet.write(row, col + 11, "w start obj", bold_format)
+    sheet.write(row, col + 12, "w start infeas", bold_format)
+    sheet.write(row, col + 13, "w final obj", bold_format)
+    sheet.write(row, col + 14, "w final infeas", bold_format)
+    sheet.write(row, col + 15, "w time", bold_format)
+    sheet.write(row, col + 16, "w tolerance", bold_format)
+    sheet.write(row, col + 17, "w termination", bold_format)
+    sheet.write(row, col + 18, "w bounded", bold_format)
 
-    sheet.write(row, col + 18, "warm cold difference", bold_format)
+    sheet.write(row, col + 19, "warm cold difference", bold_format)
 
-    warm_starts.sort(key=lambda x: x["problem"]["instance"]*100 + x["problem"]["case"])
+    warm_starts.sort(key=lambda x: x["problem"]["dataset"]*100000 +
+        x["problem"]["instance"]*100 + x["problem"]["case"])
 
     for problem in warm_starts:
         cold_result = problem["solution_steps"][0]
@@ -116,17 +123,22 @@ def add_equal_time_comp_table(sheet, warm_starts):
         sheet.write(row, col + 6, sum([step["elapsed_time"] for step in cold_result]))
         sheet.write(row, col + 7, cold_result[-1]["tolerance"])
         sheet.write(row, col + 8, cold_result[-1]["termination_status"])
+        bounded = cold_result[-1]["termination_status"] == "OPTIMAL"
+        sheet.write(row, col + 9, str(bounded))
 
-        sheet.write(row, col + 10, warm_result[0]["objective"])
-        sheet.write(row, col + 11, warm_result[0]["infeasibility"])
-        sheet.write(row, col + 12, warm_result[-1]["objective"])
-        sheet.write(row, col + 13, warm_result[-1]["infeasibility"])
-        sheet.write(row, col + 14, sum([step["elapsed_time"] for step in warm_result]))
-        sheet.write(row, col + 15, warm_result[-1]["tolerance"])
-        sheet.write(row, col + 16, warm_result[-1]["termination_status"])
+        sheet.write(row, col + 11, warm_result[0]["objective"])
+        sheet.write(row, col + 12, warm_result[0]["infeasibility"])
+        sheet.write(row, col + 13, warm_result[-1]["objective"])
+        sheet.write(row, col + 14, warm_result[-1]["infeasibility"])
+        sheet.write(row, col + 15, sum([step["elapsed_time"] for step in warm_result]))
+        sheet.write(row, col + 16, warm_result[-1]["tolerance"])
+        sheet.write(row, col + 17, warm_result[-1]["termination_status"])
+        bounded = warm_result[-1]["termination_status"] == "OPTIMAL"
+        sheet.write(row, col + 18, str(bounded))
 
-        sheet.write(row, col + 18, warm_result[-1]["objective"] - cold_result[-1]["objective"])
+        sheet.write(row, col + 19, warm_result[-1]["objective"] - cold_result[-1]["objective"])
 
+    return row, col+18
 
 def add_comparison_table(sheet, warm_starts, cold_starts):
     row, col = 0, 0
@@ -187,7 +199,61 @@ def add_comparison_table(sheet, warm_starts, cold_starts):
             sheet.write(row, col + 18, best_warm_start_ss[-1]["objective"] - cold_result["solution_steps"][0][-1]["objective"])
 
 
+def add_tolerance_comparisons(sheet, problems_results, row, col, solution_step_lables=[(0, "cold"), (1, "warm")]):
+    tightness = lambda pid: [.25, .5, .75][int((pid["instance"]-1)/5)]
+    case = lambda pid: pid["case"]
+    ds = lambda pid: pid["dataset"]
+    split_funcs = [tightness, case, ds]
+    split_names = ["tightness", "case", "ds"]
 
+    finish_status = lambda tol, term: str(tol) if term == "OPTIMAL" else "time"
+
+    for (index, label) in solution_step_lables:
+        sheet.write(row, col, label)
+        row += 1
+        # data = [(p["problem"], p["solution_steps"][index]) for p in problems_results]
+        data = [("problem", p[index]) for p in problems_results]
+        collected_splits = []
+        for split in split_funcs:
+            split_values = {}
+            for (problem_id, tolsteps) in data:
+                split_val = split(problem_id)
+                tol = finish_status(tolsteps[-1]["tolerance"],
+                    tolsteps[-1]["termination_status"])
+                if not split_val in split_values:
+                    split_values[split_val] = {}
+                if not tol in split_values[split_val]:
+                    split_values[split_val][tol] = 0
+                split_values[split_val][tol] += 1
+            collected_splits.append(split_values)
+
+        for (sf_index, split_func) in enumerate(split_funcs):
+            sf_name = split_names[sf_index]
+            results = collected_splits[sf_index]
+
+            #table column names
+            split_keys = sorted(results.keys())
+
+            #table row names
+            res_sets = [set(results[sk].keys()) for sk in split_keys]
+            all_keys = set()
+            for res_set in res_sets:
+                all_keys = all_keys.union(res_set)
+            result_keys = sorted(all_keys)
+
+            row_0 = [sf_name] + split_keys
+            other_rows = []
+            for rk in result_keys:
+                curr_row = [rk]
+                for sk in split_keys:
+                    curr_row.append(results[sk].get(rk, 0))
+                other_rows.append(curr_row)
+
+            table = [row_0] + other_rows
+            for (i, tab_row) in enumerate(table):
+                for (j, val) in enumerate(tab_row):
+                    sheet.write(row + i, col + j, val)
+            row += 3 + len(table)
 
 
 def load_data(dir):
@@ -210,25 +276,27 @@ def load_data(dir):
 # comp_sheet = book.add_worksheet("Single Start Comparison")
 # add_equal_time_comp_table(comp_sheet, warm_start_problems)
 
+import json
+
 import os
 print(os.listdir("../../"))
 
-results = load_data("../ds_8_9_res")
 comp_sheet = book.add_worksheet("warm cold comp")
-add_equal_time_comp_table(comp_sheet, results)
+print(os.getcwd())
+f = open("./results.json").read()
+results = json.loads(f)
+add_tolerance_comparisons(comp_sheet, results, 0, 0, solution_step_lables=[(0, "increasing"), (1, "equal"), (2, "decreasing")])
+
+book.close()
+quit()
+
+
+
+comp_sheet = book.add_worksheet("warm cold comp")
+row, col = add_equal_time_comp_table(comp_sheet, results)
+add_tolerance_comparisons(comp_sheet, results, row+10, 0)
 
 detail_sheet = book.add_worksheet("detail")
-row, col = 0, 0
-for result in results:
-    detail_sheet.write(row, 1, json.dumps(result["problem"]))
-    row, col = add_step_tolerances(detail_sheet, result["solution_steps"], row, 0)
-    row += 1
-
-results = load_data("../ds_8_9_res_fast")
-comp_sheet = book.add_worksheet("fast warm cold comp")
-add_equal_time_comp_table(comp_sheet, results)
-
-detail_sheet = book.add_worksheet("fast detail")
 row, col = 0, 0
 for result in results:
     detail_sheet.write(row, 1, json.dumps(result["problem"]))

@@ -14,6 +14,7 @@ struct TolStep
    elapsed_time::Number
    solution_status::String
    termination_status::String
+   gap::Number
 end
 
 function silent_optimize!(m)
@@ -53,7 +54,8 @@ function test_problem(problem;
 
 		#if the initial score is negative, convert it to the CPLEX obj value
 		if initial_sol.score < 0
-			score = initial_sol._objective_value - inf_penalty_weight * initial_sol._infeasibility
+			score = initial_sol._objective_value - inf_penalty_weight *
+						initial_sol._infeasibility
 		else
 			score = initial_sol._objective_value
 		end
@@ -115,7 +117,8 @@ function test_problem(problem;
 			sol_inf,
 			elapsed_time,
 			"$(primal_status(m))",
-			"$(termination_status(m))"))
+			"$(termination_status(m))",
+			MOI.get(m, MOI.RelativeGap())))
 
 		#check if something was proven with this tolerance
 		if termination_status(m) == MOI.OPTIMAL
@@ -129,6 +132,18 @@ function test_problem(problem;
 		end
 	end
 	sol_results
+end
+
+function make_experiment(
+		tolerances=[.001, .005, .01, .05, .08, .12], #the tolerance steps
+		times=[30, 30, 30, 30, 30, 30], #array of times per tolerance step
+		_inf_penalty_weight=10000) #Big M penalty constant
+	function(problem, initial_sol=nothing, initial_sol_time=nothing)
+		test_problem(problem, initial_sol,
+		initial_sol_time, tolerances=tolerances,
+		times=times,
+		_inf_penalty_weight=_inf_penalty_weight)
+	end
 end
 
 end

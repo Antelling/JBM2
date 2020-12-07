@@ -9,7 +9,7 @@ include("./diverse_selection_heuristic.jl")
 
 problems = SSIT.MH.Problem.load_folder("./benchmark_problems/")
 hard_problems = SSIT.MH.Problem.slice_select(
-        problems, datasets=[8, 9], cases=[3, 6])
+        problems, datasets=[8], cases=[6], instances=[10])
 
 
 repop = SSIT.MH.repeat_opt(n=5, time_limit=5)
@@ -53,6 +53,7 @@ function run_matheuristic(problems, results_folder;
 			push!(problem_results, SSIT.test_problem(p, initial_sol=sol,
 					initial_sol_time=elapsed_time, times=times,
 					tolerances=tolerances))
+			# FIXME: make above function call use the closure, add GA here
 		end
 
 		# save the problem results
@@ -69,12 +70,12 @@ end
 # 	optimizer=MH.repeat_opt(time_limit=10, n=1), popsize=30, n_starts=2)
 
 
-solset = run_matheuristic(hard_problems, "ds_8_9_res_fast",
-	optimizer=SSIT.MH.repeat_opt(time_limit=30, n=1), popsize=15, n_starts=1,
-	times=[5, 5, 5, 5, 5, 5],
-	cs_times=[35, 5, 5, 5, 5, 5])
+# solset = run_matheuristic(hard_problems, "ds_8_9_res_fast",
+# 	optimizer=SSIT.MH.repeat_opt(time_limit=30, n=1), popsize=15, n_starts=1,
+# 	times=[5, 5, 5, 5, 5, 5],
+# 	cs_times=[35, 5, 5, 5, 5, 5])
 
-solset = run_matheuristic(hard_problems, "ds_8_9_res",
+solset = run_matheuristic(hard_problems[27:end], "ds_8_9_res",
 	optimizer=SSIT.MH.repeat_opt(time_limit=300, n=2), popsize=35, n_starts=1,
 	times=[300, 300, 300, 300, 300, 300],
 	cs_times=[900, 300, 300, 300, 300, 300])
