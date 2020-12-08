@@ -1,44 +1,33 @@
-# Julia Binary Metaheuristics 2
+# Julia Binary Metaheuristics
 
-This time I tried to stack modules on top of each other like this:
+A collection of meta and math heuristics for the multi demand multi dimensional
+knapsack problem.
 
-```
------------
-| Problem |
------------
-	|
-	V
------------
-| Solution |
-------------
-	|
-	V
-------------
-| Watershed |
--------------
-	|
-	V
-------------	------------
-| DescFunc |	| Perturb |
-------------	-----------
-	|	_____________|
-	V	V			
----------	-----------			
-| PMeta |   | Execute |
----------	-----------
-	|  __________|
-	V  V
---------------
-| Experiment |
---------------
-	|
-	V
-------
-| MH |
-------
+## Folder structure:
 
-```
+- benchmark_problems
+	- contains the 9 Beasley library MDMKP datasets
+- experiments
+	- warm vs cold start comparison experiment
+	- different SSIT methods experiment
+- make_reports
+	- contains python files to generate excel sheets from JSON files
+- matheuristics
+	- contains a variety of supervisory strategies for the application of CPLEX
+- metaheuristics
+	- contains a collection of population based metaheuristics
+	- I've rewritten this part three times and still don't like it
+- MIPS
+	- formulate MDMKP problems for CPLEX
+- reports
+	- excel files copied from make_reports with additional manual formatting and
+	analysis
+- results
+	- folder to store JSON result files from experiments
 
-I like this method because I can combine it with the Juno IDE's integrated
-REPL and develop from the top down. It does lead to an overly complex
-structure.  
+
+## To run
+
+All files have relative imports based off the julia cwd being in the JBM2
+folder root. So, to run the various ssit methods experiment:
+`julia experiments/various_cold_ssit_phases.jl`

@@ -1,9 +1,27 @@
+#= Simple Sequential Increasing Tolerance
+
+Increasing the tolerance of deviation from optimal allows CPLEX to progressively
+become more and more aggressive when pruning the search space. This makes it
+possible to make stronger claims about the upper bounds of a problem then a
+simple application of CPLEX would allow.
+=#
+
 module SSIT
-include("MM.jl")
+
+# library for formulating MDMKP problems for CPLEX
+include("../MIPS/MM.jl")
+
+# metaheuristic library is used for bitlist representation function, and double
+# checking that solution objectives reported by CPLEX match the metaheuristic
+# library reported objectives
 include("../metaheuristics/MH.jl")
+
+# include the Math Opt Interface library (MOI) for querying the CPLEX model
 using JuMP
 
-
+"""
+Record for resulting status of a tolerance step.
+"""
 struct TolStep
    solution::BitArray
    repr::String
@@ -17,6 +35,7 @@ struct TolStep
    gap::Number
 end
 
+"""Run CPLEX optimization without printing to the console"""
 function silent_optimize!(m)
 	tempout = stdout # save stream
 	start_time, end_time = 0, 0
@@ -34,20 +53,23 @@ function silent_optimize!(m)
 	end_time - start_time
 end
 
+"""
+Accept an MDMKP problem, an optional initial solution and associated generation
+time, and an array of tolerances and a matched array of time limits. Run the
+SSIT method on the problem, and record the results thereof.
+"""
 function test_problem(problem;
 		initial_sol=nothing, #is there a MH-generated initial solution?
 		initial_sol_time=nothing, #we need the time for result recording
 		tolerances=[.001, .005, .01, .05, .08, .12], #the tolerance steps
 		times=[30, 30, 30, 30, 30, 30], #array of times per tolerance step
-		_inf_penalty_weight=10000) #Big M penalty constant
+		_inf_penalty_weight=10000) #Big M penalty constant for artificial vars
 
 	t = 0 #store the highest reached tolerance
-	best = [[0], 0] #default falsey values if CPLEX cannot prove anything
 	sol_results = Vector{TolStep}() #store results of each tolerance step
 
 	#create the cplex model
-	m = MM.create_always_feasible_model(problem, time_limit=times[1],
-			weight=_inf_penalty_weight)
+	m = MM.create_always_feasible_model(problem, weight=_inf_penalty_weight)
 
 	# is there a passed initial solution to seed the model?
 	if !isnothing(initial_sol)
@@ -56,6 +78,7 @@ function test_problem(problem;
 		if initial_sol.score < 0
 			score = initial_sol._objective_value - inf_penalty_weight *
 						initial_sol._infeasibility
+		# if its feasible, the two objective values are the same
 		else
 			score = initial_sol._objective_value
 		end
@@ -63,14 +86,15 @@ function test_problem(problem;
 		# save the passed solution in the tolerance steps
 		push!(sol_results, TolStep(
 	    	initial_sol.bitlist,
-	        MH.encode_bitarray(initial_sol.bitlist),
-	        -1,
-	        score,
+	      MH.encode_bitarray(initial_sol.bitlist),
+	      -1,
+	      score,
 			initial_sol._objective_value,
 			initial_sol._infeasibility,
 			initial_sol_time,
-	        "initial solution",
-	        "CPLEX not ran"))
+	      "initial solution",
+	      "CPLEX not ran",
+			-1))
 
 		#seed the cplex model
 		MM.set_bitlist!(m, initial_sol)
@@ -78,23 +102,22 @@ function test_problem(problem;
 
 	#loop over tolerances
 	for i in 1:length(tolerances)
-		#update highest reached tracker
-    	t = tolerances[i]
 
 		#update the cplex model
-		MM.set_tolerance!(m, t)
+		MM.set_tolerance!(m, tolerances[i])
 		MM.set_time!(m, times[i])
 
 		#run optimizer silently
 		elapsed_time = silent_optimize!(m)
 
-		ba, repr, cplex_obj, sol_obj, sol_inf = [], "", 0, 0, 0
-
 		#guarded information extraction
+		ba, repr, cplex_obj, sol_obj, sol_inf = [], "", 0, 0, 0
 		try
-			#if CPLEX fails to prove anything, it won't want to give us values
-			#for x
+			# if CPLEX fails to prove anything, it won't want to give us values
+			# for x
 			ba = convert(BitArray, value.(m[:x]))
+
+			# generate the representation and objective values from the bitarray
 			repr = MH.encode_bitarray(ba)
 			cplex_obj = objective_value(m)
 
@@ -104,14 +127,13 @@ function test_problem(problem;
 		catch e
 			ba = [0]
 			repr = "$(e)"
-			obj = 0
 		end
 
 		#save this tolerance step result
 		push!(sol_results, TolStep(
 			ba,
 			repr,
-			t,
+			tolerances[i],
 			cplex_obj,
 			sol_obj,
 			sol_inf,
@@ -120,10 +142,8 @@ function test_problem(problem;
 			"$(termination_status(m))",
 			MOI.get(m, MOI.RelativeGap())))
 
-		#check if something was proven with this tolerance
+		#check if something was proven with this tolerance, if so terminate early
 		if termination_status(m) == MOI.OPTIMAL
-			#do not go to the next tolerance step
-			best = (value.(all_variables(m)), objective_value(m))
 			break
 		end
 		if termination_status(m) == MOI.INFEASIBLE
@@ -132,18 +152,6 @@ function test_problem(problem;
 		end
 	end
 	sol_results
-end
-
-function make_experiment(
-		tolerances=[.001, .005, .01, .05, .08, .12], #the tolerance steps
-		times=[30, 30, 30, 30, 30, 30], #array of times per tolerance step
-		_inf_penalty_weight=10000) #Big M penalty constant
-	function(problem, initial_sol=nothing, initial_sol_time=nothing)
-		test_problem(problem, initial_sol,
-		initial_sol_time, tolerances=tolerances,
-		times=times,
-		_inf_penalty_weight=_inf_penalty_weight)
-	end
 end
 
 end

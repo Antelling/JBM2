@@ -1,9 +1,11 @@
-"""MIPS GA
+#= MIPS GA
+
+TODO: finish this
 
 make a population of solutions.
 repeatedly select closest pairs of solutions, mark the columns that have a
 difference as ambiguous and let a JuMP optimizer decide the best configuration
-between them. """
+between them. =#
 
 using JuMP
 using Distances

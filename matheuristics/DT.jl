@@ -1,6 +1,6 @@
-#= SSIT is a simple sequential increasing tolerance.
+#= Decreasing Tolerance
 
-This is a complex decreasing tolerance.
+TODO: finish this
 
 We create a metaheuristic population, select a diverse subset using a simple
 heuristic, and then test each of the starting values with an initially very
