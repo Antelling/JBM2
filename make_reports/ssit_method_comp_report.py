@@ -1,7 +1,7 @@
 import SSIT_methods as sr
-import json 
+import json
 
-f = open("./ds6_tolsteps.json")
+f = open("./results/ds6_tolsteps.json")
 data = json.loads(f.read())
 f.close()
 
@@ -18,15 +18,15 @@ method_labels = ["even time", "one tolerance", "increasing time", "decreasing ti
 book = sr.create_book("fast_SSIT_comp.xlsx")
 sheet = book.add_worksheet("Dataset 6 tolerance steps")
 
-row = 0 
-col = 0 
+row = 0
+col = 0
 
 gap_analysis = {label: [] for label in method_labels}
 time_analysis = {label: [] for label in method_labels}
 
 for (problem_results, problem_id) in zip(data, problem_labels):
     for (tolsteps, method_label) in zip(problem_results, method_labels):
-        row, _ = sr.add_step_tolerances(book, sheet, tolsteps, row, col, 
+        row, _ = sr.add_step_tolerances(book, sheet, tolsteps, row, col,
             labels=[problem_id, method_label])
         gap_analysis[method_label].append(tolsteps[-1]["gap"])
         time_analysis[method_label].append(tolsteps[-1]["elapsed_time"])

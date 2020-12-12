@@ -32,6 +32,10 @@ struct Problem_Result
     methods::Dict{String,Vector}
 end
 
+function string_id(pid)
+    "d$(pid.dataset)_i$(pid.instance)_c$(pid.case)"
+end
+
 """ Accept a vector of SSIT methods and problems, and then record the results
 of each method ran on each problem."""
 function run_exp(methods::Vector{SSIT_method}, problems::Vector{SSIT.MH.Prob})
@@ -43,7 +47,13 @@ function run_exp(methods::Vector{SSIT_method}, problems::Vector{SSIT.MH.Prob})
                 times=method.times)
             method_results[method.name] = tolsteps
         end
-        push!(results, Problem_Result(p.id, method_results))
+
+        pr = Problem_Result(p.id, method_results)
+        f = open("./results/ds6_tolsteps/" * string_id(p.id) * ".json", "w")
+        write(f, JSON.json(pr))
+        close(f)
+
+        push!(results, pr)
     end
     results
 end
