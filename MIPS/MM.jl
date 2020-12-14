@@ -32,11 +32,12 @@ end
 """Accept an MDMKP problem, and return a formulation that includes heavily
 penalized artificial variables to make the discovery of a feasibile solution
 trivial. """
-function create_always_feasible_model(problem; time_limit=20, weight=20)
+function create_always_feasible_model(problem; time_limit=20, weight=20,
+		num_threads=6)
 	model = Model(CPLEX.Optimizer)
 
 	#set cplex params
-	set_optimizer_attribute(model, "CPXPARAM_Threads", 6)
+	set_optimizer_attribute(model, "CPXPARAM_Threads", num_threads)
 	set_optimizer_attribute(model, "CPXPARAM_TimeLimit", time_limit)
 
     #make the problem variables with a Binary constraint

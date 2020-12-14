@@ -63,13 +63,15 @@ function test_problem(problem;
 		initial_sol_time=nothing, #we need the time for result recording
 		tolerances=[.001, .005, .01, .05, .08, .12], #the tolerance steps
 		times=[30, 30, 30, 30, 30, 30], #array of times per tolerance step
+		num_threads=6, # number of threads for CPLEX
 		_inf_penalty_weight=10000) #Big M penalty constant for artificial vars
 
 	t = 0 #store the highest reached tolerance
 	sol_results = Vector{TolStep}() #store results of each tolerance step
 
 	#create the cplex model
-	m = MM.create_always_feasible_model(problem, weight=_inf_penalty_weight)
+	m = MM.create_always_feasible_model(problem, weight=_inf_penalty_weight,
+		num_threads=num_threads)
 
 	# is there a passed initial solution to seed the model?
 	if !isnothing(initial_sol)

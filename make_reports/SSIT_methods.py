@@ -12,12 +12,12 @@ def add_step_tolerances(book, sheet, st, row, col, labels):
     for (i, label) in enumerate(labels):
         sheet.write(row+i, col, label, bold_format)
 
-    col += 1 
+    col += 1
 
     #add labels for data attributes
     for (i, label) in enumerate(["tolerance", "CPLEX Objective", "True Objective", "Infeasibility", "Solution status", "termination reason", "elapsed time", "gap"]):
         sheet.write(row+i, col, label + ":", bold_format)
-    
+
     #write data
     for (i, trial_step) in enumerate(st):
         for (j, key) in enumerate(["tolerance", "cplex_objective", "objective", "infeasibility", "solution_status", "termination_status", "elapsed_time", "gap"]):
@@ -28,15 +28,20 @@ def add_step_tolerances(book, sheet, st, row, col, labels):
 
 
 """
-Accept a dictionary mapping method names to synced vectors of tolerance gaps. 
-This method will add a table to compare the gaps both naively, and scaled to 
-a base case. 
+Accept a dictionary mapping method names to synced vectors of tolerance gaps.
+This method will add a table to compare the gaps both naively, and scaled to
+a base case.
 """
-def add_method_gap_comparisons(book, sheet, method_results, base_case, row, col):
+def add_method_gap_comparisons(book, sheet, method_results, base_case, title, row, col):
     bold_format = book.add_format({'bold': True, 'align': 'right'})
 
-    scale_method = lambda special, base: (special - base) / base 
+    scale_method = lambda special, base: (special - base) / base
 
+    #write title
+    sheet.write(row, col, title, bold_format)
+    row += 1
+
+    #write table headers
     sheet.write(row, col, "method", bold_format)
     sheet.write(row, col+1, "average", bold_format)
     sheet.write(row, col+2, "std dev", bold_format)
@@ -47,7 +52,7 @@ def add_method_gap_comparisons(book, sheet, method_results, base_case, row, col)
     for (method, results) in method_results.items():
         average = np.mean(results)
         deviation = np.std(results)
-        scaled_results = [scale_method(result, method_results[base_case][i]) 
+        scaled_results = [scale_method(result, method_results[base_case][i])
             for (i, result) in enumerate(results)]
         scaled_average = np.mean(scaled_results)
         scaled_std = np.std(scaled_results)
