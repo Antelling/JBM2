@@ -132,7 +132,7 @@ function specific_select(
 end
 
 function slice_select(problems::Vector{Prob};
-		datasets=1:9, cases=1:6, instances=1:15)
+		datasets=1:9, cases=1:6, instances=1:15)::Vector{Prob}
 	extracted = []
 	for prob in problems
 		if prob.id.dataset in datasets &&

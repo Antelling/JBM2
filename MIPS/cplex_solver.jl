@@ -1,7 +1,3 @@
-#=
-Cplex is found at
-/opt/ibm/ILOG/CPLEX_Studio1210/cplex/bin
-=#
 using CPLEX, JuMP, JSON
 
 include("../metaheuristics/MH.jl")
