@@ -16,7 +16,7 @@ function create_model(problem; time_limit=20)
 	model = Model(with_optimizer(CPLEX.Optimizer, CPXPARAM_ScreenOutput=0))
 
 	#make cplex params
-	set_optimizer_attribute(model, "CPXPARAM_Threads", 6)
+	set_optimizer_attribute(model, "CPXPARAM_Threads", 4)
 	set_optimizer_attribute(model, "CPXPARAM_TimeLimit", time_limit)
 
     #make the problem variables with a Binary constraint
